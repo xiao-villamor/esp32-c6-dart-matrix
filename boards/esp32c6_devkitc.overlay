@@ -1,0 +1,56 @@
+/*
+ * Devicetree overlay for ESP32-C6-DevKitC-1 (N4)
+ * Smart Dartboard — 8x8 matrix pin assignments
+ *
+ * Row outputs (active-low scan):  GPIO 0,1,2,3,4,5,6,7
+ * Column inputs (pull-up):        GPIO 20,21,10,11,12,13,15,18
+ */
+
+/ {
+    dartboard_matrix {
+        compatible = "gpio-leds";
+
+        /* Row output pins (directly driven) */
+        row0: row_0 { gpios = <&gpio0 0 GPIO_ACTIVE_LOW>; };
+        row1: row_1 { gpios = <&gpio0 1 GPIO_ACTIVE_LOW>; };
+        row2: row_2 { gpios = <&gpio0 2 GPIO_ACTIVE_LOW>; };
+        row3: row_3 { gpios = <&gpio0 3 GPIO_ACTIVE_LOW>; };
+        row4: row_4 { gpios = <&gpio0 4 GPIO_ACTIVE_LOW>; };
+        row5: row_5 { gpios = <&gpio0 5 GPIO_ACTIVE_LOW>; };
+        row6: row_6 { gpios = <&gpio0 6 GPIO_ACTIVE_LOW>; };
+        row7: row_7 { gpios = <&gpio0 7 GPIO_ACTIVE_LOW>; };
+    };
+
+    dartboard_columns {
+        compatible = "gpio-keys";
+
+        /* Column input pins (active-low, with pull-up) */
+        col0: col_0 { gpios = <&gpio0 20 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
+        col1: col_1 { gpios = <&gpio0 21 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
+        col2: col_2 { gpios = <&gpio0 10 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
+        col3: col_3 { gpios = <&gpio0 11 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
+        col4: col_4 { gpios = <&gpio0 12 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
+        col5: col_5 { gpios = <&gpio0 13 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
+        col6: col_6 { gpios = <&gpio0 15 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
+        col7: col_7 { gpios = <&gpio0 18 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
+    };
+
+    aliases {
+        dartboard-row0 = &row0;
+        dartboard-row1 = &row1;
+        dartboard-row2 = &row2;
+        dartboard-row3 = &row3;
+        dartboard-row4 = &row4;
+        dartboard-row5 = &row5;
+        dartboard-row6 = &row6;
+        dartboard-row7 = &row7;
+        dartboard-col0 = &col0;
+        dartboard-col1 = &col1;
+        dartboard-col2 = &col2;
+        dartboard-col3 = &col3;
+        dartboard-col4 = &col4;
+        dartboard-col5 = &col5;
+        dartboard-col6 = &col6;
+        dartboard-col7 = &col7;
+    };
+};
