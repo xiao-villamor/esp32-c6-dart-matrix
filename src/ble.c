@@ -392,21 +392,46 @@ int ble_init(void)
 void ble_notify_hit(const char *segment)
 {
     if (!ble_connected || !ble_notifications_enabled || !current_conn) {
+        LOG_INF("BLE notify skipped: conn=%d notif=%d ptr=%p",
+                ble_connected, ble_notifications_enabled, current_conn);
         return;
     }
 
     /* Look up the GranBoard byte code for this segment */
     for (int i = 0; i < (int)NUM_SEGMENT_CODES; i++) {
         if (strcmp(segment_codes[i].segment, segment) == 0) {
+            /*
+             * Append a monotonic sequence counter byte to every notification
+             * so that each packet is byte-unique.  Chrome's Web Bluetooth
+             * implementation deduplicates consecutive GATT notifications
+             * with identical payloads — the counter guarantees uniqueness
+             * even when the same segment is hit repeatedly.
+             *
+             * Format:  [original GranBoard bytes...] [seqno]
+             *
+             * The web app strips or ignores trailing bytes after the 0x40
+             * ('@') terminator when doing segment lookup.
+             *
+             * This replaces the previous {0x00} separator + 20ms delay
+             * approach which blocked the calling thread and may have
+             * contributed to BLE supervision timeouts.
+             */
+            static uint8_t seqno;
+            uint8_t buf[7]; /* max 5 data bytes + 1 seqno */
+            uint8_t len = segment_codes[i].len;
+
+            memcpy(buf, segment_codes[i].data, len);
+            buf[len] = ++seqno; /* wraps 0→255 naturally */
+            len++;
+
             int err = bt_gatt_notify(current_conn,
                                      &granboard_svc.attrs[2],
-                                     segment_codes[i].data,
-                                     segment_codes[i].len);
+                                     buf, len);
             if (err) {
-                LOG_WRN("BLE notify failed (err %d)", err);
+                LOG_WRN("BLE notify FAILED for %s (err %d)", segment, err);
             } else {
-                LOG_DBG("BLE notify: %s (%d bytes)",
-                        segment, segment_codes[i].len);
+                LOG_INF("BLE notify OK: %s seq=%u (%u bytes)",
+                        segment, seqno, len);
             }
             return;
         }

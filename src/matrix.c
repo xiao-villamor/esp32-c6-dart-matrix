@@ -171,10 +171,27 @@ void wait_for_settle(void)
  *
  * Called from the dedicated matrix-scan thread. Performs one full scan
  * of the 8x8 matrix and processes any detected hits.
+ *
+ * Darts that are physically lodged in the board are tracked in the
+ * seated_darts[][] array so they don't re-fire.  After a hit is detected
+ * and notified over BLE, a short settle delay allows contact bounce to
+ * subside, then scanning resumes immediately — there is no blocking wait
+ * for dart removal.  This lets the board detect the next dart as soon as
+ * it lands, even while previous darts are still in the board.
+ *
+ * The seated_darts array is cleared when the board goes fully quiet
+ * (all darts removed) for QUIET_CLEAR_MS.
  * ═══════════════════════════════════════════════════════════════════════════ */
+
+/** Time the matrix must be quiet before clearing seated darts (ms) */
+#define QUIET_CLEAR_MS  500
+
+static int64_t last_quiet_check;
 
 void matrix_scan_loop(void)
 {
+    bool found_hit = false;
+
     for (int f = 0; f < NUM_ROWS; f++) {
         row_set(f, 0);          /* Drive row LOW */
         k_busy_wait(50);        /* 50 us settle */
@@ -192,24 +209,51 @@ void matrix_scan_loop(void)
                     return;     /* Exit scan — one hit at a time in cal mode */
                 }
 
-                /* Silently suppress unmapped cells — mark seated so they
-                 * don't re-fire during the bounce window of a nearby dart */
+                /* Mark as seated immediately to prevent re-triggering */
+                seated_darts[f][c] = true;
+
+                /* Silently suppress unmapped cells */
                 if (seg[0] == '?') {
-                    seated_darts[f][c] = true;
                     return;
                 }
 
                 /* Send BLE notification (outside mutex — non-blocking) */
                 ble_notify_hit(seg);
 
-                /* Accept hit immediately on first LOW reading (same as
-                 * working calibration sketch — no re-sampling needed) */
+                /* Log the hit */
                 k_mutex_lock(&game_mutex, K_FOREVER);
-                handle_hit(seg, f, c);
+                {
+                    char label[28];
+                    int pts = get_points(seg);
+                    LOG_INF("HIT: %s (%d pts)  [row=%d col=%d]", seg, pts, f, c);
+                }
                 k_mutex_unlock(&game_mutex);
+
+                found_hit = true;
+
+                /* Short settle delay after a hit to let contact bounce subside,
+                 * then resume scanning so the next dart can be detected while
+                 * previous darts remain in the board. */
+                wait_for_settle();
                 return;
             }
         }
         row_set(f, 1);          /* Row back HIGH */
+    }
+
+    /* If no new hit was found, check whether the board is fully quiet
+     * (all darts removed) and clear seated state after a grace period. */
+    if (!found_hit && is_matrix_quiet()) {
+        int64_t now = k_uptime_get();
+        if (last_quiet_check == 0) {
+            last_quiet_check = now;
+        } else if ((now - last_quiet_check) >= QUIET_CLEAR_MS) {
+            k_mutex_lock(&game_mutex, K_FOREVER);
+            clear_seated_darts();
+            k_mutex_unlock(&game_mutex);
+            last_quiet_check = 0;
+        }
+    } else {
+        last_quiet_check = 0;
     }
 }

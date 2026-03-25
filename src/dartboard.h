@@ -56,11 +56,10 @@ void wait_for_settle(void);
 void clear_seated_darts(void);
 
 /* ═══════════════════════════════════════════════════════════════════════════
- * HIT HANDLER (game.c)
+ * SCORING HELPERS (game.c)
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 int  get_points(const char *hit);
-void handle_hit(const char *hit, int row, int col);
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * BLE MODULE (ble.c) — GranBoard-compatible peripheral
